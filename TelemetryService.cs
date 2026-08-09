@@ -1,6 +1,8 @@
 using System;
 using System.Collections.Generic;
 using System.Net.Http;
+using System.Text;
+using System.Text.Json;
 using System.Threading.Tasks;
 using Microsoft.Win32;
 
@@ -13,8 +15,11 @@ namespace ZeroTrustMonitor
 
         private static readonly HttpClient _httpClient = new HttpClient();
         
-        // Configuration from myfirewall2 project
-        private const string MeasurementId = "G-3Y256NPRT9";
+        // Official GA4 Measurement Protocol Credentials (From SystemMonitor/DeviceMonitorCS working config)
+        private const string MeasurementId = "G-B387NLSSJX";
+        private const string ApiSecret = "ch411kMtTRW7z_3XEUlmiw";
+        private const string Endpoint = $"https://www.google-analytics.com/mp/collect?measurement_id={MeasurementId}&api_secret={ApiSecret}";
+        
         private const string RegKeyPath = @"Software\ZeroTrustMonitor";
 
         private string _clientId;
@@ -69,20 +74,30 @@ namespace ZeroTrustMonitor
             }
         }
 
-        public void TrackEvent(string eventName)
+        public void TrackEvent(string eventName, Dictionary<string, object> parameters = null)
         {
             if (!IsTelemetryEnabled) return;
 
             try
             {
-                // GA4 Protocol v2 Endpoint (Used in myfirewall2)
-                var url = $"https://www.google-analytics.com/g/collect?v=2&tid={MeasurementId}&cid={_clientId}&en={Uri.EscapeDataString(eventName)}";
-                
-                var request = new HttpRequestMessage(HttpMethod.Get, url);
-                request.Headers.UserAgent.ParseAdd("ZeroTrustMonitor/1.0 (Windows NT 10.0; Win64; x64)");
-                
-                // Non-blocking fire and forget call
-                _ = _httpClient.SendAsync(request);
+                var payload = new
+                {
+                    client_id = _clientId,
+                    events = new[]
+                    {
+                        new
+                        {
+                            name = eventName,
+                            @params = parameters ?? new Dictionary<string, object>()
+                        }
+                    }
+                };
+
+                string json = JsonSerializer.Serialize(payload);
+                var content = new StringContent(json, Encoding.UTF8, "application/json");
+
+                // Non-blocking fire and forget call using official GA4 Measurement Protocol (/mp/collect)
+                _ = _httpClient.PostAsync(Endpoint, content);
             }
             catch
             {
