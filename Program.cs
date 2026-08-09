@@ -71,6 +71,8 @@ namespace ZeroTrustMonitor
             Console.WriteLine($"\n[Diagnostic Step 5] Zero-Trust ACG Analysis...");
             ManageZeroTrustAcg(targetApp);
             
+            TelemetryService.Instance.TrackEvent("app_launch");
+
             // --- INTERACTIVE MENU ---
             Console.WriteLine("\n==================================================");
             Console.WriteLine("===          Security Action Menu              ===");
@@ -82,24 +84,28 @@ namespace ZeroTrustMonitor
             Console.WriteLine(" [5] Start Global Process Hollowing Monitor (ETW)");
             Console.WriteLine(" [6] Scan All Running Processes (On-Demand Hunt)");
             Console.WriteLine(" [7] Scan Process Memory for Hollowing (Unbacked Memory)");
-            Console.WriteLine(" [8] Exit");
-            Console.Write("\n Select an option (1-8): ");
+            Console.WriteLine($" [8] Toggle GA4 Telemetry / Analytics [Currently: {(TelemetryService.IsTelemetryEnabled ? "ENABLED" : "DISABLED")}]");
+            Console.WriteLine(" [9] Exit");
+            Console.Write("\n Select an option (1-9): ");
 
             // Read actual user input
             string? choice = Console.ReadLine();
 
             if (choice == "1")
             {
+                TelemetryService.Instance.TrackEvent("action_retroactive_scan");
                 Console.WriteLine("\n[+] Initiating Full Retroactive Scan...");
                 PerformFullRetroactiveScan(targetApp);
             }
             else if (choice == "2")
             {
+                TelemetryService.Instance.TrackEvent("action_event_monitor");
                 Console.WriteLine("\n[+] Initializing Event-Based Tamper Monitor...");
                 StartFileMonitor(targetApp);
             }
             else if (choice == "3")
             {
+                TelemetryService.Instance.TrackEvent("action_edr_hook");
                 Console.WriteLine("\n[+] Scanning for active User-Mode applications...");
                 
                 var apps = Process.GetProcesses()
@@ -138,19 +144,30 @@ namespace ZeroTrustMonitor
             }
             else if (choice == "4")
             {
+                TelemetryService.Instance.TrackEvent("action_audit_drivers");
                 AuditKernelDrivers();
             }
             else if (choice == "5")
             {
+                TelemetryService.Instance.TrackEvent("action_global_process_monitor");
                 StartGlobalProcessMonitor();
             }
             else if (choice == "6")
             {
+                TelemetryService.Instance.TrackEvent("action_scan_all_processes");
                 ScanAllRunningProcessesAtWill();
             }
             else if (choice == "7")
             {
+                TelemetryService.Instance.TrackEvent("action_memory_hollowing_scan");
                 ScanProcessMemoryForHollowing();
+            }
+            else if (choice == "8")
+            {
+                bool newState = !TelemetryService.IsTelemetryEnabled;
+                TelemetryService.IsTelemetryEnabled = newState;
+                TelemetryService.Instance.TrackEvent("telemetry_toggled");
+                Console.WriteLine($"\n[+] GA4 Telemetry status updated: {(newState ? "ENABLED" : "DISABLED")}");
             }
             
             Console.WriteLine("\n[i] Operations complete.");
